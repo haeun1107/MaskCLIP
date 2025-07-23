@@ -1,4 +1,5 @@
-# Copyright (c) OpenMMLab. All rights reserved.
+# MaskCLIP/mmseg/datasets/custom.py
+# # Copyright (c) OpenMMLab. All rights reserved.
 import os.path as osp
 import warnings
 from collections import OrderedDict
@@ -180,7 +181,8 @@ class CustomDataset(Dataset):
             dict: Annotation info of specified index.
         """
 
-        return self.img_infos[idx]['ann']
+        # return self.img_infos[idx]['ann']
+        return self.img_infos[idx]['ann_info']
 
     def pre_pipeline(self, results):
         """Prepare results dict for pipeline."""
@@ -244,10 +246,12 @@ class CustomDataset(Dataset):
         raise NotImplementedError
 
     def get_gt_seg_map_by_idx(self, index):
-        """Get one ground truth segmentation map for evaluation."""
         ann_info = self.get_ann_info(index)
-        results = dict(ann_info=ann_info)
-        self.pre_pipeline(results)
+        # seg_prefix 제거한 상태로 results 구성
+        results = dict(
+            ann_info=dict(seg_map=ann_info['seg_map']),
+            seg_prefix=None  # ✅ 중복 방지용
+        )
         self.gt_seg_map_loader(results)
         return results['gt_semantic_seg']
 
