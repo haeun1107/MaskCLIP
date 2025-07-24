@@ -44,6 +44,11 @@ pip install -v -e .
 # Dataset Preparation
 Please refer to [dataset_prepare.md](docs/en/dataset_prepare.md#prepare-datasets). In our paper, we experiment with [Pascal VOC](docs/en/dataset_prepare.md#pascal-voc), [Pascal Context](docs/en/dataset_prepare.md#pascal-context), and [COCO Stuff 164k](docs/en/dataset_prepare.md#coco-stuff-164k).
 
+# [HAEUN] Dataset Preparation
+🔗 **Pascal Context dataset** was downloaded from the official source:  
+http://host.robots.ox.ac.uk/pascal/VOC/voc2010/index.html
+<br>
+
 # MaskCLIP
 MaskCLIP doesn't require any training. We only need to (1) download and convert the CLIP model and (2) prepare the text embeddings of the objects of interest.
 
