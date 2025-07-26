@@ -19,8 +19,15 @@ class BTCVDataset(CustomDataset):
 
     PALETTE = [[i * 20, i * 20, i * 20] for i in range(14)]
 
+    # def __init__(self, split, **kwargs):
+    #     super().__init__(split=split, **kwargs)  # ✅ split 직접 넘기기
+    
     def __init__(self, split, **kwargs):
-        super().__init__(split=split, **kwargs)  # ✅ split 직접 넘기기
+        super().__init__(
+            split=split,
+            reduce_zero_label=False,  # background 포함
+            **kwargs)
+        assert osp.exists(self.img_dir) and self.split is not None
 
 
     def load_annotations(self, img_dir, img_suffix, ann_dir, seg_map_suffix, split=None, **kwargs):
@@ -80,4 +87,25 @@ class BTCVDataset(CustomDataset):
         return self.img_infos[idx]['ann_info']
 
 
+@DATASETS.register_module()
+class BTCVDataset13(BTCVDataset):
+    """BTCV Dataset with 13 foreground classes (background excluded)."""
 
+    CLASSES = [
+        'spleen', 'kidney_right', 'kidney_left', 'gallbladder', 'esophagus',
+        'liver', 'stomach', 'aorta', 'inferior_vena_cava',
+        'portal_vein_and_splenic_vein', 'pancreas',
+        'adrenal_gland_right', 'adrenal_gland_left'
+    ]
+
+    PALETTE = [[i * 20, i * 20, i * 20] for i in range(13)]
+
+    def __init__(self, split, **kwargs):
+        super().__init__(split=split, **kwargs)  # ✅ split 직접 넘기기
+
+    # def __init__(self, split, **kwargs):
+    #     super(BTCVDataset13, self).__init__(
+    #         split=split,
+    #         reduce_zero_label=True,
+    #         **kwargs)
+    #     assert osp.exists(self.img_dir) and self.split is not None

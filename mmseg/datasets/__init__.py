@@ -19,10 +19,11 @@ from .voc import PascalVOCDataset
 from .web_image import WebImageDataset
 from .maskclip_demo import MaskCLIPDemoDataset
 from .btcv import BTCVDataset
+from .btcv import BTCVDataset13
 
 __all__ = [
     'CustomDataset', 'build_dataloader', 'ConcatDataset', 'RepeatDataset',
-    'BTCVDataset',
+    'BTCVDataset', 'BTCVDataset13',
     'DATASETS', 'build_dataset', 'PIPELINES', 'CityscapesDataset',
     'PascalVOCDataset', 'ADE20KDataset', 'PascalContextDataset',
     'PascalContextDataset59', 'ChaseDB1Dataset', 'DRIVEDataset', 'HRFDataset',

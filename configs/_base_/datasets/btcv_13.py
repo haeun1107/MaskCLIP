@@ -1,7 +1,5 @@
-# configs/_base_/datasets/btcv.py
-# BTCV Dataset for CustomDataset with .png images and .npz segmentation labels
-
-dataset_type = 'BTCVDataset'
+# configs/_base_/datasets/btcv_13.py
+dataset_type = 'BTCVDataset13'
 data_root = 'data/BTCV/'
 
 img_norm_cfg = dict(
@@ -13,7 +11,7 @@ crop_size = (512, 512)
 
 train_pipeline = [
     dict(type='LoadImageFromFile'),
-    dict(type='LoadNpzAnnotations'),
+    dict(type='LoadNpzAnnotations', reduce_zero_label=True),
     dict(type='Resize', img_scale=(512, 512), ratio_range=(0.5, 2.0)),
     dict(type='RandomCrop', crop_size=crop_size, cat_max_ratio=0.75),
     dict(type='RandomFlip', prob=0.5),

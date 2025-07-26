@@ -1,7 +1,7 @@
 # configs/maskclip_plus/anno_free/maskclip_plus_r50_deeplabv2_r101-d8_480x480_btcv.py
 _base_ = [
     '../../_base_/models/maskclip_plus_r50.py',
-    '../../_base_/datasets/btcv.py',
+    '../../_base_/datasets/btcv_13.py',
     '../../_base_/default_runtime.py',
     '../../_base_/schedules/schedule_4k.py'
 ]
