@@ -6,15 +6,15 @@ _base_ = [
     '../../_base_/schedules/schedule_4k.py'
 ]
 
-suppress_labels = list(range(14))  # BTCV의 클래스 수 (0~12)
+suppress_labels = list(range(13))  # BTCV의 클래스 수 (1~13)
 
 model = dict(
     pretrained='open-mmlab://resnet101_v1c',
     backbone=dict(depth=101),
     decode_head=dict(
-        text_categories=14,
+        text_categories=13,
         #ignore_index=255,
-        text_embeddings_path='pretrain/btcv_gpt_RN50_clip_text.pth',
+        text_embeddings_path='pretrain/btcv_combined_RN50_clip_text.pth',
         clip_unlabeled_cats=suppress_labels
     )
 )
