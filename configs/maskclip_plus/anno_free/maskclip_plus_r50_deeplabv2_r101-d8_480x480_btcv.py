@@ -14,7 +14,8 @@ model = dict(
     decode_head=dict(
         text_categories=13,
         #ignore_index=255,
-        text_embeddings_path='pretrain/btcv_combined_RN50_clip_text.pth',
+        text_embeddings_path='pretrain/btcv_gpt_RN50_clip_text.pth',
+        #text_embeddings_path='pretrain/btcv_combined_RN50_clip_text.pth',
         clip_unlabeled_cats=suppress_labels
     )
 )

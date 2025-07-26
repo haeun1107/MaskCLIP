@@ -5,7 +5,7 @@ import os
 
 # Natural language descriptions (approx. 60 tokens each)
 btcv_prompts = {
-    "background": "everything in the image that is not part of a known organ or anatomical structure, including fat, muscle, and surrounding tissues.",
+    #"background": "everything in the image that is not part of a known organ or anatomical structure, including fat, muscle, and surrounding tissues.",
     "spleen": "the spleen: a soft, fist-sized organ that filters blood and helps fight infections in the immune system.",
     "kidney_right": "the right kidney: a bean-shaped organ located in the right side of the abdomen, responsible for filtering waste from blood and producing urine.",
     "kidney_left": "the left kidney: a bean-shaped organ located in the left side of the abdomen that maintains fluid balance and removes toxins from the body.",

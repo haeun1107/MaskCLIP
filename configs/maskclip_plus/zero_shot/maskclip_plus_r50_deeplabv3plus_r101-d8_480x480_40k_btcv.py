@@ -12,7 +12,8 @@ model = dict(
     backbone=dict(depth=101),
     decode_head=dict(
         text_categories=13,  # background 제외
-        text_embeddings_path='pretrain/btcv_combined_RN50_clip_text.pth',
+        text_embeddings_path='pretrain/btcv_gpt_RN50_clip_text.pth',
+        #text_embeddings_path='pretrain/btcv_combined_RN50_clip_text.pth',
         clip_unlabeled_cats=suppress_labels,
         unlabeled_cats=suppress_labels,
         start_clip_guided=(1, 3999),
