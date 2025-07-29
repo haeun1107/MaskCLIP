@@ -5,6 +5,7 @@ import os
 
 # 1. Natural language descriptions
 btcv_prompts = {
+    #"background": "everything in the image that is not part of a known organ or anatomical structure, including fat, muscle, and surrounding tissues.",
     "spleen": "a soft, fist-sized organ that filters blood and helps fight infections in the immune system.",
     "kidney_right": "a bean-shaped organ located in the right side of the abdomen, responsible for filtering waste from blood and producing urine.",
     "kidney_left": "a bean-shaped organ located in the left side of the abdomen that maintains fluid balance and removes toxins from the body.",
@@ -22,6 +23,7 @@ btcv_prompts = {
 
 # 2. Renamed class names
 btcv_renamed_classes = {
+    #"background": "non-organ area",
     "spleen": "blood-filtering immune organ",
     "kidney_right": "right renal organ",
     "kidney_left": "left renal organ",
@@ -40,7 +42,7 @@ btcv_renamed_classes = {
 def parse_args():
     parser = argparse.ArgumentParser(description='Combine rewritten class names with natural descriptions for CLIP text embedding')
     parser.add_argument('--model', default='RN50', choices=['RN50', 'RN101', 'RN50x4', 'RN50x16', 'ViT32', 'ViT16'], help='CLIP model name')
-    parser.add_argument('--output', default='pretrain/btcv_combined_RN50_clip_text.pth', help='Output path for text embeddings')
+    parser.add_argument('--output', default='pretrain/btcv_combined_bg_RN50_clip_text.pth', help='Output path for text embeddings')
     return parser.parse_args()
 
 def build_combined_prompts(name_map, desc_map):
