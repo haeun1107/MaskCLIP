@@ -366,6 +366,9 @@ def total_area_to_metrics(total_area_intersect,
         if metric == 'mIoU':
             iou = total_area_intersect / total_area_union
             acc = total_area_intersect / total_area_label
+            # acc = torch.where(total_area_label != 0,
+            #     total_area_intersect / total_area_label,
+            #     torch.zeros_like(total_area_label))
             precision = total_area_intersect / total_area_pred_label
             ret_metrics['IoU'] = iou
             ret_metrics['Acc'] = acc
@@ -389,14 +392,9 @@ def total_area_to_metrics(total_area_intersect,
         metric: value.numpy()
         for metric, value in ret_metrics.items()
     }
-    # if nan_to_num is not None:
-    #     ret_metrics = OrderedDict({
-    #         metric: np.nan_to_num(metric_value, nan=nan_to_num)
-    #         for metric, metric_value in ret_metrics.items()
-    #     })
-    ret_metrics = OrderedDict({
-    metric: np.nan_to_num(metric_value, nan=0.0)
-    for metric, metric_value in ret_metrics.items()
-    })
-
+    if nan_to_num is not None:
+        ret_metrics = OrderedDict({
+            metric: np.nan_to_num(metric_value, nan=nan_to_num)
+            for metric, metric_value in ret_metrics.items()
+        })
     return ret_metrics

@@ -1,32 +1,50 @@
-
 # configs/maskclip_plus/anno_free/maskclip_plus_r50_deeplabv2_r101-d8_480x480_btcv.py
+
 _base_ = [
     '../../_base_/models/maskclip_plus_r50.py',
     '../../_base_/datasets/btcv.py',
     '../../_base_/default_runtime.py',
-    '../../_base_/schedules/schedule_4k.py'
+    '../../_base_/schedules/schedule_4k.py' 
 ]
 
-suppress_labels = list(range(1, 14))  # BTCV의 클래스 수 (0~13)
+# === Label Suppression ===
+# Treat all labels (including background and all 13 organs) as "unlabeled"
+# This enables annotation-free learning using CLIP pseudo-labels
+suppress_labels = list(range(13))  # BTCV의 14개 클래스
 
+# === Model Configuration ===
 model = dict(
-    pretrained='open-mmlab://resnet101_v1c',
-    backbone=dict(depth=101),
+    pretrained='open-mmlab://resnet101_v1c', # Pretrained weights for ResNet-101 backbone
+    backbone=dict(depth=101),  # Use deeper ResNet-101 as backbone (instead of default ResNet-50)
     decode_head=dict(
-        text_categories=14,
-        #ignore_index=255,
-        text_embeddings_path='pretrain/btcv_RN50_clip_text.pth',
-        #text_embeddings_path='pretrain/btcv_combined_RN50_clip_text.pth',
-        clip_unlabeled_cats=suppress_labels
+        text_categories=13, # Number of text categories in CLIP: 13
+        text_embeddings_path='pretrain/btcv_re_RN50_clip_text.pth', # Path to CLIP-generated text embeddings (should match 14 classes)
+        clip_unlabeled_cats=suppress_labels,   # List of categories where no annotation is available; use CLIP instead
+        # No self-training phase here (start_self_train is omitted)
+        cls_bg=False,  # Don't Use background text embedding (e.g., for label 0)
+        decode_module_cfg=dict(
+            type='DepthwiseSeparableASPPHead',  # memory-efficient ASPP head
+            input_transform=None,
+            dilations=(1, 12, 24, 36), # dilation rates for ASPP
+            c1_in_channels=256, # input channel for low-level features
+            c1_channels=48, # channel reduction for skip connection
+        ),
     )
 )
 
-find_unused_parameters=True
+# multi-GPU 학습 시 파라미터 사용 유무를 명시
+find_unused_parameters = True
 
+# Normalize 설정
 img_norm_cfg = dict(
-    mean=[123.675, 116.28, 103.53], std=[58.395, 57.12, 57.375], to_rgb=True)
+    mean=[123.675, 116.28, 103.53],
+    std=[58.395, 57.12, 57.375],
+    to_rgb=True
+)
+
+# 입력 크기 및 전처리 파이프라인
 img_scale = (512, 512)
-crop_size = (480, 480)
+crop_size = (512, 512)
 
 train_pipeline = [
     dict(type='LoadImageFromFile'),
@@ -41,6 +59,7 @@ train_pipeline = [
     dict(type='Collect', keys=['img', 'gt_semantic_seg']),
 ]
 
+# 학습 데이터 설정
 data = dict(
     samples_per_gpu=6,
     workers_per_gpu=2,

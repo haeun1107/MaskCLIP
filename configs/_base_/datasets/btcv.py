@@ -9,13 +9,14 @@ img_norm_cfg = dict(
     std=[58.395, 57.12, 57.375],
     to_rgb=True)
 
-crop_size = (512, 512)
+#crop_size = (512, 512)
+crop_size = (480, 480)
 
 train_pipeline = [
     dict(type='LoadImageFromFile'),
     dict(type='LoadNpzAnnotations', reduce_zero_label=False),  # npz용 로더
     dict(type='Resize', img_scale=(512, 512), keep_ratio=True),
-    dict(type='RandomCrop', crop_size=crop_size, cat_max_ratio=0.75),
+    dict(type='RandomCrop', crop_size=crop_size, cat_max_ratio=1.0),
     dict(type='RandomFlip', prob=0.5),
     dict(type='Normalize', **img_norm_cfg),
     dict(type='Pad', size=crop_size, pad_val=0, seg_pad_val=255),
@@ -40,7 +41,7 @@ test_pipeline = [
 ]
 
 classes = [
-    'background', 'spleen', 'kidney_right', 'kidney_left', 'gallbladder',
+    'spleen', 'kidney_right', 'kidney_left', 'gallbladder',
     'esophagus', 'liver', 'stomach', 'aorta', 'inferior_vena_cava',
     'portal_vein_and_splenic_vein', 'pancreas', 'adrenal_gland_right',
     'adrenal_gland_left'

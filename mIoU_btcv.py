@@ -7,19 +7,19 @@ UNSEEN_CLASSES = [
 
 # 복사해온 로그를 문자열로 붙여넣기 (여기서는 예시 일부만 표시)
 raw_result = """
-|          background          | 98.85 | 99.82 | 99.03 |
-|            spleen            |  0.0  |  0.0  |  nan  |
-|         kidney_right         |  51.4 | 79.16 | 59.44 |
-|         kidney_left          | 66.31 | 72.86 | 88.06 |
-|         gallbladder          |  0.0  |  0.0  |  nan  |
-|          esophagus           |  91.8 |  94.8 | 96.66 |
-|            liver             | 83.53 | 88.51 | 93.69 |
-|           stomach            |  0.0  |  0.0  |  nan  |
-|            aorta             | 63.18 | 81.21 |  74.0 |
-|      inferior_vena_cava      | 54.37 | 60.59 | 84.13 |
-| portal_vein_and_splenic_vein | 60.43 |  65.5 | 88.64 |
-|           pancreas           | 20.16 | 51.34 | 24.92 |
-|     adrenal_gland_right      | 36.69 | 45.57 | 65.32 |
+|          background          | 98.91 | 99.73 | 99.17 |
+|            spleen            | 80.03 | 85.79 | 92.26 |
+|         kidney_right         | 73.17 | 78.52 | 91.48 |
+|         kidney_left          | 54.37 | 61.19 | 82.99 |
+|         gallbladder          | 37.35 | 42.52 | 75.41 |
+|          esophagus           | 90.33 | 93.71 | 96.16 |
+|            liver             | 78.65 | 81.85 | 95.26 |
+|           stomach            | 64.81 | 71.37 | 87.57 |
+|            aorta             | 63.21 | 74.99 | 80.09 |
+|      inferior_vena_cava      | 40.13 | 47.87 | 71.26 |
+| portal_vein_and_splenic_vein | 48.73 | 54.48 | 82.19 |
+|           pancreas           |  0.0  |  0.0  |  nan  |
+|     adrenal_gland_right      |  1.22 |  1.22 | 76.11 |
 |      adrenal_gland_left      |  nan  |  nan  |  nan  |
 """
 

@@ -1,3 +1,5 @@
+# configs/maskclip_plus/anno_free/maskclip_plus_r50_deeplabv2_r101-d8_480x480_btcv_self.py
+
 _base_ = [
     '../../_base_/models/maskclip_plus_r50.py',
     '../../_base_/datasets/btcv.py',
@@ -6,19 +8,16 @@ _base_ = [
 ]
 
 # BTCV has 14 classes (0~13), all suppressed in annotation-free setting
-suppress_labels = list(range(0, 14))  # ✅ all labels are unseen (annotation-free)
+suppress_labels = list(range(13))  # ✅ all labels are unseen (annotation-free)
 
 model = dict(
     pretrained='open-mmlab://resnet101_v1c',
     backbone=dict(depth=101),
     decode_head=dict(
-        text_categories=14,
-        text_embeddings_path='pretrain/btcv_RN50_clip_text.pth',
-        clip_unlabeled_cats=suppress_labels,  # ✅ treat all classes as unseen
-        unlabeled_cats=suppress_labels,       # ✅ enable self-training with pseudo labels
-        start_clip_guided=(1, 3999),          # ✅ phase 1: clip-guided only
-        start_self_train=(4000, -1),          # ✅ phase 2: self-training until 40K
-        cls_bg=True,                          # ✅ include background in label index
+        text_categories=13,
+        text_embeddings_path='pretrain/btcv_re_RN50_clip_text.pth',
+        clip_unlabeled_cats=suppress_labels,
+        cls_bg=False,
         decode_module_cfg=dict(
             type='DepthwiseSeparableASPPHead',
             input_transform=None,
@@ -26,8 +25,12 @@ model = dict(
             c1_in_channels=256,
             c1_channels=48,
         ),
+        reset_counter=True,                     # iteration 기준 초기화
+        start_clip_guided=(1, 4000),            # 1 ~ 4000 : CLIP-guided only
+        start_self_train=(4001, -1),            # 4001 이후 : Self-Training
     )
 )
+
 
 find_unused_parameters = True
 
@@ -39,7 +42,7 @@ crop_size = (480, 480)
 
 train_pipeline = [
     dict(type='LoadImageFromFile'),
-    dict(type='LoadNpzAnnotations', suppress_labels=suppress_labels, reduce_zero_label=False),
+    dict(type='LoadNpzAnnotations', reduce_zero_label=False),
     dict(type='Resize', img_scale=(512, 512), ratio_range=(0.5, 2.0)),
     dict(type='RandomCrop', crop_size=(480, 480), cat_max_ratio=0.75),
     dict(type='RandomFlip', prob=0.5),

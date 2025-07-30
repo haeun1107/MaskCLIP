@@ -11,13 +11,13 @@ class BTCVDataset(CustomDataset):
     """BTCV Dataset with .npz label and CLIP feature .npy input."""
 
     CLASSES = [
-        'background', 'spleen', 'kidney_right', 'kidney_left', 'gallbladder',
+        'spleen', 'kidney_right', 'kidney_left', 'gallbladder',
         'esophagus', 'liver', 'stomach', 'aorta', 'inferior_vena_cava',
         'portal_vein_and_splenic_vein', 'pancreas',
         'adrenal_gland_right', 'adrenal_gland_left'
     ]
 
-    PALETTE = [[i * 20, i * 20, i * 20] for i in range(14)]
+    PALETTE = [[i * 20, i * 20, i * 20] for i in range(13)]
 
     def __init__(self, split, **kwargs):
         super().__init__(split=split, **kwargs)  # ✅ split 직접 넘기기

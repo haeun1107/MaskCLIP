@@ -11,7 +11,7 @@ dataset_type = 'BTCVDataset'
 data_root = 'data/BTCV/'
 
 classes = [
-    'background', 'spleen', 'kidney_right', 'kidney_left', 'gallbladder',
+    'spleen', 'kidney_right', 'kidney_left', 'gallbladder',
     'esophagus', 'liver', 'stomach', 'aorta', 'inferior_vena_cava',
     'portal_vein_and_splenic_vein', 'pancreas', 'adrenal_gland_right',
     'adrenal_gland_left'
@@ -32,12 +32,12 @@ model = dict(
         input_transform=None,
         channels=1024,
         dropout_ratio=0.1,
-        num_classes=14,
+        num_classes=13,
         norm_cfg=dict(type='SyncBN', requires_grad=True),
         align_corners=False,
-        text_categories=14,
+        text_categories=13,
         text_channels=1024,
-        text_embeddings_path='pretrain/btcv_RN50_clip_text.pth',
+        text_embeddings_path='pretrain/btcv_re_RN50_clip_text.pth',
         visual_projs_path='pretrain/RN50_clip_weights.pth',
         loss_decode=dict(
         type='CrossEntropyLoss', use_sigmoid=False, loss_weight=1.0)),

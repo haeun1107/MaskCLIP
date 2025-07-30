@@ -25,22 +25,29 @@ class LoadNpzAnnotations:
             seg_array = seg_array.reshape(13, 512, 512)
 
         if seg_array.shape[0] == 13:
-            seg = np.argmax(seg_array, axis=0).astype(np.uint8)
-        else:
+            # background 채널을 제일 앞에 추가 (모든 픽셀이 0인 채널)
+            background = np.zeros_like(seg_array[0:1])  # shape (1, 512, 512)
+            seg_array = np.vstack([background, seg_array])  # shape → (14, 512, 512)
+
+        if seg_array.shape[0] != 14:
             raise ValueError(f"Unexpected shape: {seg_array.shape} in {npz_path}")
+
+        seg = np.argmax(seg_array, axis=0).astype(np.uint8)
 
         # 👇 reduce_zero_label이 True면 background를 255로 마스킹
         if self.reduce_zero_label:
             seg_zero_mask = (seg == 0)
-            seg = seg - 1
+            seg = seg - 1 
             seg[seg_zero_mask] = 255
             seg = seg.astype(np.uint8)
 
-        # 👇 suppress_labels 있는 경우 해당 클래스는 전부 255로 마스킹
         if self.suppress_labels:
             for cls in self.suppress_labels:
                 seg[seg == cls] = 255
 
         results['gt_semantic_seg'] = seg
         results['seg_fields'] = ['gt_semantic_seg']
+        
+        # unique, counts = np.unique(seg, return_counts=True)
+        # print("GT 클래스 분포:", dict(zip(unique, counts)))
         return results
