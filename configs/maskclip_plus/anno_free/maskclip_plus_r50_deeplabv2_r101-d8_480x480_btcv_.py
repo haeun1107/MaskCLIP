@@ -1,19 +1,18 @@
-
 # configs/maskclip_plus/anno_free/maskclip_plus_r50_deeplabv2_r101-d8_480x480_btcv.py
 _base_ = [
     '../../_base_/models/maskclip_plus_r50.py',
-    '../../_base_/datasets/btcv.py',
+    '../../_base_/datasets/btcv_13.py',
     '../../_base_/default_runtime.py',
     '../../_base_/schedules/schedule_4k.py'
 ]
 
-suppress_labels = list(range(1, 14))  # BTCV의 클래스 수 (0~13)
+suppress_labels = list(range(13))  # BTCV의 클래스 수 (1~13)
 
 model = dict(
     pretrained='open-mmlab://resnet101_v1c',
     backbone=dict(depth=101),
     decode_head=dict(
-        text_categories=14,
+        text_categories=13,
         #ignore_index=255,
         text_embeddings_path='pretrain/btcv_RN50_clip_text.pth',
         #text_embeddings_path='pretrain/btcv_combined_RN50_clip_text.pth',
@@ -30,7 +29,7 @@ crop_size = (480, 480)
 
 train_pipeline = [
     dict(type='LoadImageFromFile'),
-    dict(type='LoadNpzAnnotations', reduce_zero_label=False),
+    dict(type='LoadNpzAnnotations', reduce_zero_label=True),
     dict(type='Resize', img_scale=img_scale, ratio_range=(0.5, 2.0)),
     dict(type='RandomCrop', crop_size=crop_size, cat_max_ratio=0.75),
     dict(type='RandomFlip', prob=0.5),

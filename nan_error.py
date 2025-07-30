@@ -1,40 +1,48 @@
-# from mmcv import Config
-# from mmseg.datasets import build_dataset
-# import numpy as np
-# from tqdm import tqdm
-
-# # config 경로는 실험에서 사용한 zero-shot config
-# cfg = Config.fromfile('configs/maskclip_plus/zero_shot/maskclip_plus_r50_deeplabv3plus_r101-d8_480x480_40k_btcv.py')
-# val_dataset = build_dataset(cfg.data.val)
-
-# # target_class = 11  # adrenal_gland_left
-
-# target_class = list(range(14))
-
-# for t in range(14):
-#     count = 0
-#     for i in tqdm(range(len(val_dataset))):
-#         gt = val_dataset.get_gt_seg_map_by_idx(i)
-#         if (gt == t).sum() > 0:
-#             count += 1
-
-#     print(f"✅ [결과] 클래스 {t} 포함된 이미지 수: {count}")
-    
-from mmcv import Config
-from mmseg.datasets import build_dataset
+import os
 import numpy as np
+from scipy.sparse import load_npz
 from tqdm import tqdm
 
-cfg = Config.fromfile('configs/maskclip_plus/zero_shot/maskclip_plus_r50_deeplabv3plus_r101-d8_480x480_40k_btcv.py')
-train_dataset = build_dataset(cfg.data.train)
+LABEL_DIR = 'data/BTCV/label'
+target_class = 13  # class index for adrenal_gland_left
+files_with_target_class = []
 
-target_class = 12  # adrenal_gland_left
-count = 0
+print(f"🔍 Checking for class {target_class} (adrenal_gland_left) based on sum...\n")
 
-for i in tqdm(range(len(train_dataset))):
-    gt = train_dataset.get_gt_seg_map_by_idx(i)
-    if (gt == target_class).sum() > 0:
-        count += 1
+for fname in tqdm(os.listdir(LABEL_DIR)):
+    if not fname.endswith('.npz'):
+        continue
 
-print(f"✅ [Train] 클래스 13 (adrenal_gland_left) 포함된 이미지 수: {count}")
+    npz_path = os.path.join(LABEL_DIR, fname)
+    try:
+        sparse_arr = load_npz(npz_path)
+        dense_arr = sparse_arr.toarray()  # shape: (13, H*W) or (13, H, W)
 
+        # reshape if needed
+        if dense_arr.shape == (13, 512 * 512):
+            dense_arr = dense_arr.reshape(13, 512, 512)
+
+        if dense_arr.shape[0] == 13:
+            # insert background at index 0 → class 13 becomes index 13
+            dense_arr = np.vstack([np.zeros((1, *dense_arr.shape[1:])), dense_arr])
+
+        if dense_arr.shape[0] != 14:
+            print(f"❌ Shape mismatch in {fname}: {dense_arr.shape}")
+            continue
+
+        # ✅ Use class sum instead of argmax
+        if dense_arr[target_class].sum() > 0:
+            files_with_target_class.append(fname)
+
+    except Exception as e:
+        print(f"⚠️ Error reading {fname}: {e}")
+
+# 🔽 결과 출력
+print(f"\n📊 Found {len(files_with_target_class)} files containing class {target_class} (adrenal_gland_left):")
+for f in files_with_target_class:
+    print(" -", f)
+
+if not files_with_target_class:
+    print("\n❌ Class 13 never appears in the current dataset!")
+else:
+    print("\n✅ Class 13 is present in some label files.")
