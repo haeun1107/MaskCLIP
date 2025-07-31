@@ -4,7 +4,7 @@ from scipy.sparse import load_npz
 from tqdm import tqdm
 
 LABEL_DIR = 'data/BTCV/label'
-target_class = 13  # class index for adrenal_gland_left (after adding background)
+target_class = 2  # class index for adrenal_gland_left (after adding background)
 files_with_target_class = []
 
 print(f"🔍 Checking for class {target_class} (adrenal_gland_left) based on dense sum...\n")

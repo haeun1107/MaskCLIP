@@ -7,7 +7,7 @@ _base_ = [
     '../../_base_/schedules/schedule_40k.py'  # ✅ 40K iteration
 ]
 
-# BTCV has 14 classes (0~13), all suppressed in annotation-free setting
+# BTCV has 13 classes (0~12), all suppressed in annotation-free setting
 suppress_labels = list(range(13))  # ✅ all labels are unseen (annotation-free)
 
 model = dict(
@@ -15,7 +15,8 @@ model = dict(
     backbone=dict(depth=101),
     decode_head=dict(
         text_categories=13,
-        text_embeddings_path='pretrain/btcv_re_RN50_clip_text.pth',
+        text_embeddings_path='pretrain/btcv_gpt_RN50_clip_text.pth',
+        #text_embeddings_path='pretrain/btcv_re_RN50_clip_text.pth', 
         clip_unlabeled_cats=suppress_labels,
         cls_bg=False,
         decode_module_cfg=dict(

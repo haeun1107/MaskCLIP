@@ -152,5 +152,5 @@ if __name__ == '__main__':
     if args.no_prompt_eng:
         prefix += '_npe'
 
-    torch.save(zeroshot_weights, f'{prefix}__clip_text.pth')
+    torch.save(zeroshot_weights, f'{prefix}_vr_clip_text.pth')
 

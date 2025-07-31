@@ -25,14 +25,9 @@ class LoadNpzAnnotations:
             seg_array = seg_array.reshape(13, 512, 512)
 
         if seg_array.shape[0] == 13:
-            # background 채널을 제일 앞에 추가 (모든 픽셀이 0인 채널)
-            background = np.zeros_like(seg_array[0:1])  # shape (1, 512, 512)
-            seg_array = np.vstack([background, seg_array])  # shape → (14, 512, 512)
-
-        if seg_array.shape[0] != 14:
+            seg = np.argmax(seg_array, axis=0).astype(np.uint8)
+        else:
             raise ValueError(f"Unexpected shape: {seg_array.shape} in {npz_path}")
-
-        seg = np.argmax(seg_array, axis=0).astype(np.uint8)
 
         # 👇 reduce_zero_label이 True면 background를 255로 마스킹
         if self.reduce_zero_label:
