@@ -37,7 +37,7 @@ model = dict(
         align_corners=False,
         text_categories=13,
         text_channels=1024,
-        text_embeddings_path='pretrain/btcv_re_RN50_clip_text.pth',
+        text_embeddings_path='pretrain/btcv_gpt_RN50_clip_text.pth',
         visual_projs_path='pretrain/RN50_clip_weights.pth',
         loss_decode=dict(
         type='CrossEntropyLoss', use_sigmoid=False, loss_weight=1.0)),

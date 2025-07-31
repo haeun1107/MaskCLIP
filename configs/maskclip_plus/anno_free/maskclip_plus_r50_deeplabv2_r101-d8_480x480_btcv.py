@@ -4,13 +4,13 @@ _base_ = [
     '../../_base_/models/maskclip_plus_r50.py',
     '../../_base_/datasets/btcv.py',
     '../../_base_/default_runtime.py',
-    '../../_base_/schedules/schedule_4k.py' 
+    '../../_base_/schedules/schedule_4k.py'
 ]
 
 # === Label Suppression ===
 # Treat all labels (including background and all 13 organs) as "unlabeled"
 # This enables annotation-free learning using CLIP pseudo-labels
-suppress_labels = list(range(13))  # BTCV의 14개 클래스
+suppress_labels = list(range(13))  # BTCV 13 class
 
 # === Model Configuration ===
 model = dict(
@@ -18,7 +18,7 @@ model = dict(
     backbone=dict(depth=101),  # Use deeper ResNet-101 as backbone (instead of default ResNet-50)
     decode_head=dict(
         text_categories=13, # Number of text categories in CLIP: 13
-        text_embeddings_path='pretrain/btcv_re_RN50_clip_text.pth', # Path to CLIP-generated text embeddings (should match 14 classes)
+        text_embeddings_path='pretrain/btcv_gpt_RN50_clip_text.pth', # Path to CLIP-generated text embeddings (should match 14 classes)
         clip_unlabeled_cats=suppress_labels,   # List of categories where no annotation is available; use CLIP instead
         # No self-training phase here (start_self_train is omitted)
         cls_bg=False,  # Don't Use background text embedding (e.g., for label 0)
@@ -48,7 +48,7 @@ crop_size = (512, 512)
 
 train_pipeline = [
     dict(type='LoadImageFromFile'),
-    dict(type='LoadNpzAnnotations', reduce_zero_label=False),
+    dict(type='LoadNpzAnnotations', reduce_zero_label=False, suppress_labels=suppress_labels),
     dict(type='Resize', img_scale=img_scale, ratio_range=(0.5, 2.0)),
     dict(type='RandomCrop', crop_size=crop_size, cat_max_ratio=0.75),
     dict(type='RandomFlip', prob=0.5),

@@ -14,11 +14,12 @@ model = dict(
     pretrained='open-mmlab://resnet101_v1c',
     backbone=dict(depth=101),
     decode_head=dict(
+        type='MaskClipPlusHead',
         text_categories=13,
         text_embeddings_path='pretrain/btcv_gpt_RN50_clip_text.pth',
         #text_embeddings_path='pretrain/btcv_re_RN50_clip_text.pth', 
         clip_unlabeled_cats=suppress_labels,
-        cls_bg=False,
+        cls_bg=False, 
         decode_module_cfg=dict(
             type='DepthwiseSeparableASPPHead',
             input_transform=None,
@@ -43,7 +44,7 @@ crop_size = (480, 480)
 
 train_pipeline = [
     dict(type='LoadImageFromFile'),
-    dict(type='LoadNpzAnnotations', reduce_zero_label=False),
+    dict(type='LoadNpzAnnotations', reduce_zero_label=False, suppress_labels=suppress_labels),
     dict(type='Resize', img_scale=(512, 512), ratio_range=(0.5, 2.0)),
     dict(type='RandomCrop', crop_size=(480, 480), cat_max_ratio=0.75),
     dict(type='RandomFlip', prob=0.5),

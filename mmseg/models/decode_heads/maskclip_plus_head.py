@@ -162,12 +162,18 @@ class MaskClipPlusHead(BaseDecodeHead):
 
         if self.train_unlabeled:
             return [output, feat]
-
+        print(f"[DEBUG] Iteration: {self._iter_counter.item()} | Training: {self.training}")
         return [output]
 
 
     def assign_label(self, gt_semantic_seg, feat, norm=False, unlabeled_cats=None,
                         clip=False, k=None, cls_token=None):
+        # ⚠️ gt_semantic_seg가 tuple이면 unpack 먼저!
+        if isinstance(gt_semantic_seg, tuple):
+            print("[DEBUG] gt_semantic_seg is a tuple. Unpacking...")
+            gt_clip, loss_clip, acc_clip = gt_semantic_seg
+            gt_semantic_seg = gt_clip
+
         if (gt_semantic_seg < 0).sum() == 0:
             return gt_semantic_seg, None
 
@@ -184,8 +190,9 @@ class MaskClipPlusHead(BaseDecodeHead):
         # [unlabeled_cats, text_channels]
         unlabeled_text = text_embeddings[unlabeled_cats]
         unlabeled_idx = (gt_semantic_seg < 0)
-
+        
         output = torch.einsum('nchw,lc->nlhw', [feat, unlabeled_text])
+        print(f"[DEBUG] einsum output stats → min: {output.min()}, max: {output.max()}, mean: {output.mean()}")
         if clip:
             output = self.refine_clip_output(output, k)
 
@@ -195,6 +202,10 @@ class MaskClipPlusHead(BaseDecodeHead):
             mode='bilinear',
             align_corners=self.align_corners)
         
+        print(f"[DEBUG] assign_label() called with unlabeled_cats: {unlabeled_cats}")
+        print(f"[DEBUG] output shape: {output.shape}")
+        print(f"[DEBUG] gt_semantic_seg unique: {torch.unique(gt_semantic_seg)}")
+
         neg_pos = None
         if self.conf_thresh > 0:
             N, C, H, W = output.shape
@@ -202,7 +213,10 @@ class MaskClipPlusHead(BaseDecodeHead):
             neg_pos = neg_pos.view(N, H, W)
         
         output = output.permute(0, 2, 3, 1)
+        print(f"[DEBUG] unlabeled_idx count: {(unlabeled_idx).sum().item()}")
         match_matrix = output[unlabeled_idx]
+        preds = match_matrix.argmax(dim=1)
+        print(f"[DEBUG] match_matrix.argmax label distribution: {torch.bincount(preds)}")
 
         gt_semantic_seg[unlabeled_idx] = unlabeled_cats[match_matrix.argmax(dim=1)]
         if neg_pos is not None:
@@ -267,6 +281,13 @@ class MaskClipPlusHead(BaseDecodeHead):
         Returns:
             dict[str, Tensor]: a dictionary of loss components
         """
+
+        # ⚠️ gt_semantic_seg가 tuple이면 unpack 먼저!
+        if isinstance(gt_semantic_seg, tuple):
+            print("[DEBUG] gt_semantic_seg is a tuple. Unpacking...")
+            gt_clip, loss_clip, acc_clip = gt_semantic_seg
+            gt_semantic_seg = gt_clip  # 진짜 mask만 꺼내서 사용
+
         if self.distill:
             seg_logits, feat = self.forward(inputs)
             x = self.clip(img)[-1]
@@ -289,7 +310,14 @@ class MaskClipPlusHead(BaseDecodeHead):
             else:
                 mask = (gt_semantic_seg < 0)
 
-            gt_semantic_seg[gt_semantic_seg<0] = 255
+            if isinstance(gt_semantic_seg, tuple):
+                print("[DEBUG] gt_semantic_seg is a tuple. Unpacking in decode_head...")
+                gt_clip, loss_clip, acc_clip = gt_semantic_seg
+                gt_clip[gt_clip < 0] = 255  # ✅ 마스킹 먼저
+                gt_semantic_seg = gt_clip
+            else:
+                gt_semantic_seg[gt_semantic_seg < 0] = 255
+
             losses = self.losses(seg_logits, gt_semantic_seg)
 
             feat = resize(
@@ -310,10 +338,18 @@ class MaskClipPlusHead(BaseDecodeHead):
         elif self.train_unlabeled:
             seg_logits, feat = self.forward(inputs)
             gt_self, gt_clip, gt_weight = None, None, None
+            
+            # ✅ 튜플인 경우 unpack 처리
+            if isinstance(gt_semantic_seg, tuple):
+                print("[DEBUG] gt_semantic_seg is a tuple. Unpacking...")
+                gt_clip, loss_clip, acc_clip = gt_semantic_seg
+                gt_semantic_seg = gt_clip
+                
             self.label_sanity_check(gt_semantic_seg)
-            if not torch.all(gt_semantic_seg != -1):
+            if not torch.all(gt_semantic_seg != 255):
                 if self.self_train and self._iter_counter >= self.start_self_train[0] and \
                     (self._iter_counter <= self.start_self_train[1] or self.start_self_train[1] < 0):
+                    print(f"[DEBUG] Self-Training active at iter {self._iter_counter.item()}")
                     with torch.no_grad():
                         gt = gt_semantic_seg.clone()
                         gt_self = self.assign_label(gt, feat,
@@ -321,6 +357,7 @@ class MaskClipPlusHead(BaseDecodeHead):
                         del gt
                 if self.clip_guided and self._iter_counter >= self.start_clip_guided[0] and \
                     (self._iter_counter <= self.start_clip_guided[1] or self.start_clip_guided[1] < 0):
+                    print(f"[DEBUG] CLIP-Guided active at iter {self._iter_counter.item()}")
                     with torch.no_grad():
                         # clip cannot deal with background
                         gt = gt_semantic_seg.clone()
@@ -346,6 +383,7 @@ class MaskClipPlusHead(BaseDecodeHead):
                             k = torch.flatten(k, start_dim=2).transpose(-2, -1)
                             v = self.v_proj(x)
                             feat = self.c_proj(v)
+                        print(f"[DEBUG] assigning clip-guided labels")
                         gt_clip = self.assign_label(gt, feat,
                                     True, self.clip_unlabeled_cats, 
                                     k=k, cls_token=cls_token, clip=True)
@@ -362,8 +400,24 @@ class MaskClipPlusHead(BaseDecodeHead):
                         gt_semantic_seg = gt_clip
 
                 # ignore the unlabeled
-                gt_semantic_seg[gt_semantic_seg<0] = 255
-                
+                if isinstance(gt_semantic_seg, tuple):
+                    print("[DEBUG] gt_semantic_seg is a tuple. Unpacking before label assignment...")
+                    
+                    if len(gt_semantic_seg) == 3:
+                        gt_clip, loss_clip, acc_clip = gt_semantic_seg
+                    elif len(gt_semantic_seg) == 2:
+                        gt_clip, acc_clip = gt_semantic_seg
+                        loss_clip = None  # or some dummy
+                    elif len(gt_semantic_seg) == 1:
+                        gt_clip = gt_semantic_seg[0]
+                        loss_clip, acc_clip = None, None
+                    else:
+                        raise ValueError(f"Unexpected gt_semantic_seg tuple length: {len(gt_semantic_seg)}")
+
+                    gt_semantic_seg = gt_clip
+
+                gt_semantic_seg[gt_semantic_seg < 0] = 255
+
             losses = self.losses(seg_logits, gt_semantic_seg)
         else:
             seg_logits = self.forward(inputs)

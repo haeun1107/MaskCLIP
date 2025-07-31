@@ -36,13 +36,15 @@ class LoadNpzAnnotations:
             seg[seg_zero_mask] = 255
             seg = seg.astype(np.uint8)
 
+        seg = seg.astype(np.int16)
+
         if self.suppress_labels:
             for cls in self.suppress_labels:
-                seg[seg == cls] = 255
+                seg[seg == cls] = -1
 
         results['gt_semantic_seg'] = seg
         results['seg_fields'] = ['gt_semantic_seg']
         
-        # unique, counts = np.unique(seg, return_counts=True)
-        # print("GT 클래스 분포:", dict(zip(unique, counts)))
+        unique, counts = np.unique(seg, return_counts=True)
+        print("GT 클래스 분포:", dict(zip(unique, counts)))
         return results
