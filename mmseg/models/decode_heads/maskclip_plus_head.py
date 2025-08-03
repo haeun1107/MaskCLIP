@@ -24,17 +24,22 @@ class MaskClipPlusHead(BaseDecodeHead):
                     distill=False, distill_labeled=True, distill_weight=1., **kwargs):
         super(MaskClipPlusHead, self).__init__(
             input_transform=decode_module_cfg.pop('input_transform'), **kwargs)
+        # Text embedding info: number of classes and embedding dimensions
         self.text_categories = text_categories
         self.text_channels = text_channels
         self.text_embeddings_path = text_embeddings_path
+        # Whether to L2 normalize feature before classification
         self.norm_feat = norm_feat
-        self.unlabeled_cats = torch.tensor(unlabeled_cats, device='cuda')
-        self.clip_unlabeled_cats = torch.tensor(clip_unlabeled_cats, device='cuda')
+        # Class indices for which pseudo-labels will be generated
+        self.unlabeled_cats = torch.tensor(unlabeled_cats, dtype=torch.long, device='cuda')
+        self.clip_unlabeled_cats = torch.tensor(clip_unlabeled_cats, dtype=torch.long, device='cuda')
+        # Training iteration settings for pseudo-label switching
         self.start_self_train = start_self_train
         self.start_clip_guided = start_clip_guided
         self.self_train = (start_self_train[0] >= 0)
         self.clip_guided = (start_clip_guided[0] >= 0)
         self.train_unlabeled = self.self_train or self.clip_guided
+        # Iteration counter for tracking training progress
         self.register_buffer('_iter_counter', torch.tensor(0, device='cuda'))
         self.clip_weights_path = clip_weights_path
         self.cls_bg = cls_bg
@@ -54,6 +59,7 @@ class MaskClipPlusHead(BaseDecodeHead):
         self.register_buffer('text_embeddings', torch.randn(text_categories, text_channels))
 
         self.vit = vit
+        # Build CLIP backbone if CLIP-guided labeling is enabled
         if self.clip_guided:
             self.clip = build_backbone(clip_cfg)
             self.ks_thresh = ks_thresh
@@ -66,6 +72,7 @@ class MaskClipPlusHead(BaseDecodeHead):
                 self.k_proj = nn.Conv2d(clip_channels, clip_channels, 1)
                 self.v_proj = nn.Conv2d(clip_channels, clip_channels, 1)
                 self.c_proj = nn.Conv2d(clip_channels, text_channels, 1)
+        # Whether to learn a background embedding vector (for cls_bg=True)
         if cls_bg:
             self.bg_embeddings = nn.Parameter(torch.randn(1, text_channels))
         self.clip_up_unlabeled_cats = []
@@ -140,15 +147,19 @@ class MaskClipPlusHead(BaseDecodeHead):
         return output
 
     def forward(self, inputs):
+        # Apply segmentation decode module (e.g. DeepLabV2) to input features
         output = self.decode_module.forward_module(inputs)
 
+        # Detach for pseudo-label generation (no gradient)
         feat = output.detach()
+        # Pixel-wise classification with cosine similarity to text embeddings
         output = self.cls_seg(output)
 
         if self.reset_counter:
             self.reset_counter = False
             self._iter_counter *= 0
 
+        # Handle training iteration counter and logs
         self._iter_counter += 1
         if self.training:
             if self._iter_counter == self.start_self_train[0]:
@@ -160,51 +171,62 @@ class MaskClipPlusHead(BaseDecodeHead):
             if self._iter_counter == self.start_clip_guided[1]:
                 print_log('Stop clip guided training', logger=get_root_logger())
 
+        # If in training and using pseudo-labels, return both logit and feature
         if self.train_unlabeled:
             return [output, feat]
-        print(f"[DEBUG] Iteration: {self._iter_counter.item()} | Training: {self.training}")
+        #print(f"[DEBUG] Iteration: {self._iter_counter.item()} | Training: {self.training}")
         return [output]
 
 
     def assign_label(self, gt_semantic_seg, feat, norm=False, unlabeled_cats=None,
                         clip=False, k=None, cls_token=None):
-        # ⚠️ gt_semantic_seg가 tuple이면 unpack 먼저!
+        # If gt is a tuple, unpack it (from CLIP-guided loss output)
         if isinstance(gt_semantic_seg, tuple):
-            print("[DEBUG] gt_semantic_seg is a tuple. Unpacking...")
+            #] gt_semantic_seg is a tuple. Unpacking...")
             gt_clip, loss_clip, acc_clip = gt_semantic_seg
             gt_semantic_seg = gt_clip
 
+        # Skip if no unlabeled pixels exist
         if (gt_semantic_seg < 0).sum() == 0:
+            print("[DEBUG] All pixels are labeled. assign_label skipped.")
             return gt_semantic_seg, None
-
+        
+        # Normalize feature for cosine similarity if enabled
         if norm:
             feat = feat / feat.norm(dim=1, keepdim=True)
 
         gt_semantic_seg = gt_semantic_seg.squeeze(1)
 
+        # Combine background and foreground embeddings if cls_bg is True
         if self.cls_bg:
             bg_embeddings = self.bg_embeddings / self.bg_embeddings.norm(dim=-1, keepdim=True)
             text_embeddings = torch.cat([bg_embeddings, self.text_embeddings], dim=0)
         else:
             text_embeddings = self.text_embeddings
+        #print("[DEBUG] feat stats:", feat.mean().item(), feat.std().item())
+        #print("[DEBUG] text_embeddings stats:", self.text_embeddings.mean().item())
+
+        # Select embeddings corresponding to unlabeled classes
         # [unlabeled_cats, text_channels]
         unlabeled_text = text_embeddings[unlabeled_cats]
-        unlabeled_idx = (gt_semantic_seg < 0)
+        unlabeled_idx = (gt_semantic_seg < 0) # select -1 (unlabeled classes)
         
+        # Compute cosine similarity between pixel features and text embeddings
         output = torch.einsum('nchw,lc->nlhw', [feat, unlabeled_text])
-        print(f"[DEBUG] einsum output stats → min: {output.min()}, max: {output.max()}, mean: {output.mean()}")
+        #print(f"[DEBUG] einsum output stats → min: {output.min()}, max: {output.max()}, mean: {output.mean()}")
         if clip:
             output = self.refine_clip_output(output, k)
-
+        
+        # Resize similarity map to match segmentation mask resolution
         output = resize(
             input=output,
             size=gt_semantic_seg.shape[1:],
             mode='bilinear',
             align_corners=self.align_corners)
         
-        print(f"[DEBUG] assign_label() called with unlabeled_cats: {unlabeled_cats}")
-        print(f"[DEBUG] output shape: {output.shape}")
-        print(f"[DEBUG] gt_semantic_seg unique: {torch.unique(gt_semantic_seg)}")
+        # print(f"[DEBUG] assign_label() called with unlabeled_cats: {unlabeled_cats}")
+        # print(f"[DEBUG] output shape: {output.shape}")
+        # print(f"[DEBUG] gt_semantic_seg unique: {torch.unique(gt_semantic_seg)}")
 
         neg_pos = None
         if self.conf_thresh > 0:
@@ -212,12 +234,17 @@ class MaskClipPlusHead(BaseDecodeHead):
             neg_pos = output.view(N, C, -1).max(dim=1)[0] < self.conf_thresh
             neg_pos = neg_pos.view(N, H, W)
         
+        # Select best matching class for each pixel
         output = output.permute(0, 2, 3, 1)
-        print(f"[DEBUG] unlabeled_idx count: {(unlabeled_idx).sum().item()}")
+        #print(f"[DEBUG] unlabeled_idx count: {(unlabeled_idx).sum().item()}")
+        if output.shape[1] == 0:
+            print("⚠️ CLIP-guided label output is empty! Skipping label assignment.")
+            return None
         match_matrix = output[unlabeled_idx]
         preds = match_matrix.argmax(dim=1)
-        print(f"[DEBUG] match_matrix.argmax label distribution: {torch.bincount(preds)}")
+        #print(f"[DEBUG] match_matrix.argmax label distribution: {torch.bincount(preds)}")
 
+        # Assign predicted class index to unlabeled pixels
         gt_semantic_seg[unlabeled_idx] = unlabeled_cats[match_matrix.argmax(dim=1)]
         if neg_pos is not None:
             gt_semantic_seg[neg_pos] = -1
@@ -282,15 +309,16 @@ class MaskClipPlusHead(BaseDecodeHead):
             dict[str, Tensor]: a dictionary of loss components
         """
 
-        # ⚠️ gt_semantic_seg가 tuple이면 unpack 먼저!
+        # Handle case where gt_semantic_seg is a tuple (e.g. from CLIP-guided evaluation)
         if isinstance(gt_semantic_seg, tuple):
-            print("[DEBUG] gt_semantic_seg is a tuple. Unpacking...")
             gt_clip, loss_clip, acc_clip = gt_semantic_seg
-            gt_semantic_seg = gt_clip  # 진짜 mask만 꺼내서 사용
+            gt_semantic_seg = gt_clip 
 
         if self.distill:
             seg_logits, feat = self.forward(inputs)
+            # Get CLIP feature map from image
             x = self.clip(img)[-1]
+            # Extract visual features from CLIP for ViT or ResNet
             if self.vit:
                 v = None
                 if isinstance(x, list) and len(x) == 4:
@@ -303,23 +331,28 @@ class MaskClipPlusHead(BaseDecodeHead):
                     clip_feat = self.proj(x)
             else:
                 clip_feat = self.c_proj(self.v_proj(x))
+            # Normalize CLIP features
             clip_feat = clip_feat / clip_feat.norm(dim=1, keepdim=True)
 
+            # Select pixels for distillation loss: labeled or unlabeled
             if self.distill_labeled:
                 mask = (gt_semantic_seg != 255)
             else:
                 mask = (gt_semantic_seg < 0)
 
+            # Make sure mask is properly handled
             if isinstance(gt_semantic_seg, tuple):
-                print("[DEBUG] gt_semantic_seg is a tuple. Unpacking in decode_head...")
+                #print("[DEBUG] gt_semantic_seg is a tuple. Unpacking in decode_head...")
                 gt_clip, loss_clip, acc_clip = gt_semantic_seg
-                gt_clip[gt_clip < 0] = 255  # ✅ 마스킹 먼저
+                gt_clip[gt_clip < 0] = 255
                 gt_semantic_seg = gt_clip
             else:
                 gt_semantic_seg[gt_semantic_seg < 0] = 255
 
+            # Compute supervised segmentation loss
             losses = self.losses(seg_logits, gt_semantic_seg)
 
+            # Resize both features to match original image size
             feat = resize(
                 input=feat,
                 size=mask.shape[2:],
@@ -330,37 +363,50 @@ class MaskClipPlusHead(BaseDecodeHead):
                 size=mask.shape[2:],
                 mode='bilinear',
                 align_corners=self.align_corners)
+            
+            # Compute distillation loss on valid pixels only
             mask = mask.squeeze(1)
             if torch.any(mask):
                 feat = feat.permute(0, 2, 3, 1)[mask]
                 clip_feat = clip_feat.permute(0, 2, 3, 1)[mask]
                 losses['loss_distill'] = F.l1_loss(feat, clip_feat) * self.distill_weight
+        
+        # UNLABELED TRAINING (Self / CLIP Guided)
         elif self.train_unlabeled:
             seg_logits, feat = self.forward(inputs)
             gt_self, gt_clip, gt_weight = None, None, None
             
-            # ✅ 튜플인 경우 unpack 처리
+            # Make sure mask is properly handled
             if isinstance(gt_semantic_seg, tuple):
-                print("[DEBUG] gt_semantic_seg is a tuple. Unpacking...")
+                #print("[DEBUG] gt_semantic_seg is a tuple. Unpacking...")
                 gt_clip, loss_clip, acc_clip = gt_semantic_seg
                 gt_semantic_seg = gt_clip
                 
             self.label_sanity_check(gt_semantic_seg)
+            
+            # If there are unlabeled pixels
             if not torch.all(gt_semantic_seg != 255):
+                # Self-training path
                 if self.self_train and self._iter_counter >= self.start_self_train[0] and \
                     (self._iter_counter <= self.start_self_train[1] or self.start_self_train[1] < 0):
-                    print(f"[DEBUG] Self-Training active at iter {self._iter_counter.item()}")
+                    #print(f"[DEBUG] Self-Training active at iter {self._iter_counter.item()}")
                     with torch.no_grad():
                         gt = gt_semantic_seg.clone()
                         gt_self = self.assign_label(gt, feat,
                                     self.norm_feat, self.unlabeled_cats)
+                        # 🔽 valid가 0이면 CLIP fallback 사용
+                        if (gt_self != -1).sum() == 0:
+                            print("[DEBUG] gt_self empty, fallback to gt_clip")
+                            gt_self = gt_clip
                         del gt
+                # CLIP-guided path
                 if self.clip_guided and self._iter_counter >= self.start_clip_guided[0] and \
                     (self._iter_counter <= self.start_clip_guided[1] or self.start_clip_guided[1] < 0):
-                    print(f"[DEBUG] CLIP-Guided active at iter {self._iter_counter.item()}")
+                    #print(f"[DEBUG] CLIP-Guided active at iter {self._iter_counter.item()}")
                     with torch.no_grad():
                         # clip cannot deal with background
                         gt = gt_semantic_seg.clone()
+                        # Extract features from CLIP
                         if gt_self is not None and self.cls_bg:
                             gt[gt_self == 0] = 0
                         x = self.clip(img)[-1]
@@ -383,21 +429,31 @@ class MaskClipPlusHead(BaseDecodeHead):
                             k = torch.flatten(k, start_dim=2).transpose(-2, -1)
                             v = self.v_proj(x)
                             feat = self.c_proj(v)
-                        print(f"[DEBUG] assigning clip-guided labels")
+                        #print(f"[DEBUG] assigning clip-guided labels")
                         gt_clip = self.assign_label(gt, feat,
                                     True, self.clip_unlabeled_cats, 
                                     k=k, cls_token=cls_token, clip=True)
                         del gt
+                
+                # Final pseudo-label decision: self, clip, or hybrid        
                 if gt_self is not None:
+                    #print("[DEBUG] unique labels after assign_label:", torch.unique(gt_clip)) 
                     gt_semantic_seg = gt_self
                 if gt_clip is not None:
                     # merge gt_self and gt_clip
                     if gt_self is not None:
+                        print("[DEBUG] NO gt_self !!")
                         for i in self.trust_clip_on:
                             idx = (gt_clip == i)
                             gt_semantic_seg[idx] = i
                     else:
                         gt_semantic_seg = gt_clip
+                # if gt_self is None or (gt_self == -1).all():
+                #     print("[HYBRID] Fallback to CLIP-guided labels")
+                #     gt_semantic_seg = gt_clip
+                # else:
+                #     gt_semantic_seg = gt_self
+                #print("[DEBUG] unique labels after merging:", torch.unique(gt_semantic_seg))
 
                 # ignore the unlabeled
                 if isinstance(gt_semantic_seg, tuple):

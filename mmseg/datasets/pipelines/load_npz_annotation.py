@@ -45,6 +45,6 @@ class LoadNpzAnnotations:
         results['gt_semantic_seg'] = seg
         results['seg_fields'] = ['gt_semantic_seg']
         
-        unique, counts = np.unique(seg, return_counts=True)
-        print("GT 클래스 분포:", dict(zip(unique, counts)))
+        # unique, counts = np.unique(seg, return_counts=True)
+        # print("GT 클래스 분포:", dict(zip(unique, counts)))
         return results
