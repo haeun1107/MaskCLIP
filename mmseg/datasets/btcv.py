@@ -20,16 +20,8 @@ class BTCVDataset(CustomDataset):
     PALETTE = [[i * 20, i * 20, i * 20] for i in range(13)]
 
     def __init__(self, split, **kwargs):
-        super().__init__(split=split, **kwargs)  # ✅ split 직접 넘기기
-    
-    # def __init__(self, split, **kwargs):
-    #     super().__init__(
-    #         split=split,
-    #         reduce_zero_label=False,  # background 포함
-    #         **kwargs)
-    #     assert osp.exists(self.img_dir) and self.split is not None
-
-
+        super().__init__(split=split, **kwargs) 
+        
     def load_annotations(self, img_dir, img_suffix, ann_dir, seg_map_suffix, split=None, **kwargs):
         with open(self.split, 'r') as f:
             lines = f.readlines()
