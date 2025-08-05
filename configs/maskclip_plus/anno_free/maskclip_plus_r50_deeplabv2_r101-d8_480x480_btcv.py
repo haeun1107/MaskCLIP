@@ -2,9 +2,9 @@
 
 _base_ = [
     '../../_base_/models/maskclip_plus_r50.py',
-    '../../_base_/datasets/btcv.py',
+    '../../_base_/datasets/btcv10.py',
     '../../_base_/default_runtime.py',
-    '../../_base_/schedules/schedule_4k.py'
+    '../../_base_/schedules/schedule_320k.py'
 ]
 
 # === Label Suppression ===
@@ -58,17 +58,3 @@ train_pipeline = [
     dict(type='DefaultFormatBundle'),
     dict(type='Collect', keys=['img', 'gt_semantic_seg']),
 ]
-
-# 학습 데이터 설정
-data = dict(
-    samples_per_gpu=6,
-    workers_per_gpu=2,
-    train=dict(
-        type='BTCVDataset',
-        data_root='data/BTCV',
-        img_dir='image/x',
-        ann_dir='label',
-        split='train.txt',
-        pipeline=train_pipeline
-    )
-)

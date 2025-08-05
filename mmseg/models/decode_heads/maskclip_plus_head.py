@@ -57,7 +57,15 @@ class MaskClipPlusHead(BaseDecodeHead):
         self.build_decode_module(decode_module_cfg)
 
         self.register_buffer('text_embeddings', torch.randn(text_categories, text_channels))
-
+        
+        # Add trainable classifier
+        self.classifier = nn.Conv2d(
+            in_channels=self.channels,
+            out_channels=text_categories, 
+            kernel_size=1,
+            bias=False
+        )
+                
         self.vit = vit
         # Build CLIP backbone if CLIP-guided labeling is enabled
         if self.clip_guided:
@@ -77,18 +85,29 @@ class MaskClipPlusHead(BaseDecodeHead):
             self.bg_embeddings = nn.Parameter(torch.randn(1, text_channels))
         self.clip_up_unlabeled_cats = []
 
-
     def init_weights(self, call_super=True):
         if call_super:
             super(MaskClipPlusHead, self).init_weights()
         self.load_text_embeddings()
+            
         if self.clip_guided:
             self.load_clip_weights()
+            
+        self.init_classifier_with_text_embeddings()
+        
+        for p in self.classifier.parameters():
+            p.requires_grad = True
 
     def load_text_embeddings(self):
         loaded = torch.load(self.text_embeddings_path, map_location='cuda')
         self.text_embeddings[:, :] = loaded[:, :]
         print_log(f'Loaded text embeddings from {self.text_embeddings_path}', logger=get_root_logger())
+
+    def init_classifier_with_text_embeddings(self):
+        # Initialize classifier weights from normalized text embeddings
+        with torch.no_grad():
+            normed = self.text_embeddings / self.text_embeddings.norm(dim=1, keepdim=True)
+            self.classifier.weight.copy_(normed[:, :, None, None])
 
     def load_clip_weights(self):
         loaded = torch.load(self.clip_weights_path, map_location='cuda')
@@ -120,7 +139,6 @@ class MaskClipPlusHead(BaseDecodeHead):
         if self.cls_bg:
             self.bg_embeddings.requires_grad = True
     
-
     def build_decode_module(self, cfg):
         cfg['init_cfg'] = None
         cfg['in_channels'] = self.in_channels
@@ -137,7 +155,9 @@ class MaskClipPlusHead(BaseDecodeHead):
 
         if self.norm_feat:
             feat = feat / feat.norm(dim=1, keepdim=True)
-        output = F.conv2d(feat, self.text_embeddings[:, :, None, None])
+        #output = F.conv2d(feat, self.text_embeddings[:, :, None, None])
+        # Classify pixels using trainable classifier layer
+        output = self.classifier(feat)
         
         if self.cls_bg:
             bg_weight = self.bg_embeddings / self.bg_embeddings.norm(dim=-1, keepdim=True)
