@@ -394,106 +394,107 @@ class MaskClipPlusHead(BaseDecodeHead):
         # UNLABELED TRAINING (Self / CLIP Guided)
         elif self.train_unlabeled:
             seg_logits, feat = self.forward(inputs)
-            gt_self, gt_clip, gt_weight = None, None, None
+            # gt_self, gt_clip, gt_weight = None, None, None
             
-            # Make sure mask is properly handled
-            if isinstance(gt_semantic_seg, tuple):
-                #print("[DEBUG] gt_semantic_seg is a tuple. Unpacking...")
-                gt_clip, loss_clip, acc_clip = gt_semantic_seg
-                gt_semantic_seg = gt_clip
+            # # Make sure mask is properly handled
+            # if isinstance(gt_semantic_seg, tuple):
+            #     #print("[DEBUG] gt_semantic_seg is a tuple. Unpacking...")
+            #     gt_clip, loss_clip, acc_clip = gt_semantic_seg
+            #     gt_semantic_seg = gt_clip
                 
-            self.label_sanity_check(gt_semantic_seg)
+            # self.label_sanity_check(gt_semantic_seg)
             
-            # If there are unlabeled pixels
-            if not torch.all(gt_semantic_seg != 255):
-                # Self-training path
-                if self.self_train and self._iter_counter >= self.start_self_train[0] and \
-                    (self._iter_counter <= self.start_self_train[1] or self.start_self_train[1] < 0):
-                    #print(f"[DEBUG] Self-Training active at iter {self._iter_counter.item()}")
-                    with torch.no_grad():
-                        gt = gt_semantic_seg.clone()
-                        gt_self = self.assign_label(gt, feat,
-                                    self.norm_feat, self.unlabeled_cats)
-                        # 🔽 valid가 0이면 CLIP fallback 사용
-                        if (gt_self != -1).sum() == 0:
-                            print("[DEBUG] gt_self empty, fallback to gt_clip")
-                            gt_self = gt_clip
-                        del gt
-                # CLIP-guided path
-                if self.clip_guided and self._iter_counter >= self.start_clip_guided[0] and \
-                    (self._iter_counter <= self.start_clip_guided[1] or self.start_clip_guided[1] < 0):
-                    #print(f"[DEBUG] CLIP-Guided active at iter {self._iter_counter.item()}")
-                    with torch.no_grad():
-                        # clip cannot deal with background
-                        gt = gt_semantic_seg.clone()
-                        # Extract features from CLIP
-                        if gt_self is not None and self.cls_bg:
-                            gt[gt_self == 0] = 0
-                        x = self.clip(img)[-1]
-                        q, k, v, cls_token = None, None, None, None
-                        if self.vit:
-                            if isinstance(x, list) and len(x) == 4:
-                                x, q, k, v = x
-                            if isinstance(x, list) and len(x) == 2:
-                                x, cls_token = x
-                            if v is not None:
-                                feat = self.proj(v)
-                            else:
-                                feat = self.proj(x)
-                            if cls_token is not None:
-                                cls_token = self.proj(cls_token[:, :, None, None])[:, :, 0, 0]
-                        else:
-                            q = self.q_proj(x)
-                            k = self.k_proj(x)
-                            q = torch.flatten(q, start_dim=2).transpose(-2, -1)
-                            k = torch.flatten(k, start_dim=2).transpose(-2, -1)
-                            v = self.v_proj(x)
-                            feat = self.c_proj(v)
-                        #print(f"[DEBUG] assigning clip-guided labels")
-                        gt_clip = self.assign_label(gt, feat,
-                                    True, self.clip_unlabeled_cats, 
-                                    k=k, cls_token=cls_token, clip=True)
-                        del gt
+            # # If there are unlabeled pixels
+            # if not torch.all(gt_semantic_seg != 255):
+            #     # Self-training path
+            #     if self.self_train and self._iter_counter >= self.start_self_train[0] and \
+            #         (self._iter_counter <= self.start_self_train[1] or self.start_self_train[1] < 0):
+            #         #print(f"[DEBUG] Self-Training active at iter {self._iter_counter.item()}")
+            #         with torch.no_grad():
+            #             gt = gt_semantic_seg.clone()
+            #             gt_self = self.assign_label(gt, feat,
+            #                         self.norm_feat, self.unlabeled_cats)
+            #             # 🔽 valid가 0이면 CLIP fallback 사용
+            #             if (gt_self != -1).sum() == 0:
+            #                 print("[DEBUG] gt_self empty, fallback to gt_clip")
+            #                 gt_self = gt_clip
+            #             del gt
+            #     # CLIP-guided path
+            #     if self.clip_guided and self._iter_counter >= self.start_clip_guided[0] and \
+            #         (self._iter_counter <= self.start_clip_guided[1] or self.start_clip_guided[1] < 0):
+            #         #print(f"[DEBUG] CLIP-Guided active at iter {self._iter_counter.item()}")
+            #         with torch.no_grad():
+            #             # clip cannot deal with background
+            #             gt = gt_semantic_seg.clone()
+            #             # Extract features from CLIP
+            #             if gt_self is not None and self.cls_bg:
+            #                 gt[gt_self == 0] = 0
+            #             x = self.clip(img)[-1]
+            #             q, k, v, cls_token = None, None, None, None
+            #             if self.vit:
+            #                 if isinstance(x, list) and len(x) == 4:
+            #                     x, q, k, v = x
+            #                 if isinstance(x, list) and len(x) == 2:
+            #                     x, cls_token = x
+            #                 if v is not None:
+            #                     feat = self.proj(v)
+            #                 else:
+            #                     feat = self.proj(x)
+            #                 if cls_token is not None:
+            #                     cls_token = self.proj(cls_token[:, :, None, None])[:, :, 0, 0]
+            #             else:
+            #                 q = self.q_proj(x)
+            #                 k = self.k_proj(x)
+            #                 q = torch.flatten(q, start_dim=2).transpose(-2, -1)
+            #                 k = torch.flatten(k, start_dim=2).transpose(-2, -1)
+            #                 v = self.v_proj(x)
+            #                 feat = self.c_proj(v)
+            #             #print(f"[DEBUG] assigning clip-guided labels")
+            #             gt_clip = self.assign_label(gt, feat,
+            #                         True, self.clip_unlabeled_cats, 
+            #                         k=k, cls_token=cls_token, clip=True)
+            #             del gt
                 
-                # Final pseudo-label decision: self, clip, or hybrid        
-                if gt_self is not None:
-                    #print("[DEBUG] unique labels after assign_label:", torch.unique(gt_clip)) 
-                    gt_semantic_seg = gt_self
-                if gt_clip is not None:
-                    # merge gt_self and gt_clip
-                    if gt_self is not None:
-                        print("[DEBUG] NO gt_self !!")
-                        for i in self.trust_clip_on:
-                            idx = (gt_clip == i)
-                            gt_semantic_seg[idx] = i
-                    else:
-                        gt_semantic_seg = gt_clip
-                # if gt_self is None or (gt_self == -1).all():
-                #     print("[HYBRID] Fallback to CLIP-guided labels")
-                #     gt_semantic_seg = gt_clip
-                # else:
-                #     gt_semantic_seg = gt_self
-                #print("[DEBUG] unique labels after merging:", torch.unique(gt_semantic_seg))
+            #     # Final pseudo-label decision: self, clip, or hybrid        
+            #     if gt_self is not None:
+            #         #print("[DEBUG] unique labels after assign_label:", torch.unique(gt_clip)) 
+            #         gt_semantic_seg = gt_self
+            #     if gt_clip is not None:
+            #         # merge gt_self and gt_clip
+            #         if gt_self is not None:
+            #             print("[DEBUG] NO gt_self !!")
+            #             for i in self.trust_clip_on:
+            #                 idx = (gt_clip == i)
+            #                 gt_semantic_seg[idx] = i
+            #         else:
+            #             gt_semantic_seg = gt_clip
+            #     # if gt_self is None or (gt_self == -1).all():
+            #     #     print("[HYBRID] Fallback to CLIP-guided labels")
+            #     #     gt_semantic_seg = gt_clip
+            #     # else:
+            #     #     gt_semantic_seg = gt_self
+            #     #print("[DEBUG] unique labels after merging:", torch.unique(gt_semantic_seg))
 
-                # ignore the unlabeled
-                if isinstance(gt_semantic_seg, tuple):
-                    print("[DEBUG] gt_semantic_seg is a tuple. Unpacking before label assignment...")
+            #     # ignore the unlabeled
+            #     if isinstance(gt_semantic_seg, tuple):
+            #         print("[DEBUG] gt_semantic_seg is a tuple. Unpacking before label assignment...")
                     
-                    if len(gt_semantic_seg) == 3:
-                        gt_clip, loss_clip, acc_clip = gt_semantic_seg
-                    elif len(gt_semantic_seg) == 2:
-                        gt_clip, acc_clip = gt_semantic_seg
-                        loss_clip = None  # or some dummy
-                    elif len(gt_semantic_seg) == 1:
-                        gt_clip = gt_semantic_seg[0]
-                        loss_clip, acc_clip = None, None
-                    else:
-                        raise ValueError(f"Unexpected gt_semantic_seg tuple length: {len(gt_semantic_seg)}")
+            #         if len(gt_semantic_seg) == 3:
+            #             gt_clip, loss_clip, acc_clip = gt_semantic_seg
+            #         elif len(gt_semantic_seg) == 2:
+            #             gt_clip, acc_clip = gt_semantic_seg
+            #             loss_clip = None  # or some dummy
+            #         elif len(gt_semantic_seg) == 1:
+            #             gt_clip = gt_semantic_seg[0]
+            #             loss_clip, acc_clip = None, None
+            #         else:
+            #             raise ValueError(f"Unexpected gt_semantic_seg tuple length: {len(gt_semantic_seg)}")
 
-                    gt_semantic_seg = gt_clip
+            #         gt_semantic_seg = gt_clip
 
-                gt_semantic_seg[gt_semantic_seg < 0] = 255
+            #     gt_semantic_seg[gt_semantic_seg < 0] = 255
 
+            gt_semantic_seg[gt_semantic_seg < 0] = 255
             losses = self.losses(seg_logits, gt_semantic_seg)
         else:
             seg_logits = self.forward(inputs)
