@@ -4,7 +4,7 @@ _base_ = [
     '../_base_/models/maskclip_r50.py',
     '../_base_/datasets/btcv10.py',
     '../_base_/default_runtime.py',
-    '../_base_/schedules/schedule_80k.py'
+    '../_base_/schedules/schedule_320k.py'
 ]
 
 model = dict(

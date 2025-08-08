@@ -11,7 +11,7 @@ model = dict(
     pretrained='open-mmlab://resnet101_v1c',
     backbone=dict(depth=101),
     decode_head=dict(
-        text_categories=14,  # ✅ background 포함
+        text_categories=13,  # ✅ background 포함
         #text_embeddings_path='pretrain/btcv_gpt_RN50_clip_text.pth',
         #text_embeddings_path='pretrain/btcv_RN50_clip_text.pth',
         #text_embeddings_path='pretrain/btcv_clip_RN50_clip_text.pth',

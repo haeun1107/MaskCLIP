@@ -1,5 +1,6 @@
 # MaskCLIP/mmseg/datasets/btcv.py
 import os.path as osp
+import os
 import numpy as np
 import json
 from .builder import DATASETS
@@ -78,6 +79,35 @@ class BTCVDataset(CustomDataset):
     def get_ann_info(self, idx):
         return self.img_infos[idx]['ann_info']
 
+    def format_results(self, results, imgfile_prefix, indices=None, **kwargs):
+        if not os.path.exists(imgfile_prefix):
+            os.makedirs(imgfile_prefix)
+
+        if indices is None:
+            indices = list(range(len(results)))
+
+        saved_paths = []
+        
+        for i, idx in enumerate(indices):
+            result = results[i]  # numpy array of shape (H, W)
+            filename = self.img_infos[idx]['img_info']['filename']
+            basename = os.path.splitext(os.path.basename(filename))[0]
+            out_path = os.path.join(imgfile_prefix, f'{basename}.npz')
+
+            # one-hot encode: [C, H, W]
+            num_classes = kwargs.get('num_classes', 13)
+            onehot = np.zeros((num_classes, *result.shape), dtype=np.uint8)
+            for c in range(num_classes):
+                onehot[c] = (result == c).astype(np.uint8)
+
+            # Save as sparse npz
+            from scipy import sparse
+            sparse_matrix = sparse.csr_matrix(onehot.reshape(num_classes, -1))
+            sparse.save_npz(out_path, sparse_matrix)
+            saved_paths.append(out_path)
+
+        print(f"[INFO] Saved predictions to {imgfile_prefix}")
+        return saved_paths
 
 @DATASETS.register_module()
 class BTCVDataset13(BTCVDataset):

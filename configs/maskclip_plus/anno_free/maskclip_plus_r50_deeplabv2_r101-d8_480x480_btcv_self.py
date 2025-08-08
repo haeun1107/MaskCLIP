@@ -19,6 +19,7 @@ model = dict(
         text_embeddings_path='pretrain/btcv_gpt_RN50_clip_text.pth',
         #text_embeddings_path='pretrain/btcv_re_RN50_clip_text.pth', 
         clip_unlabeled_cats=suppress_labels,
+        unlabeled_cats=suppress_labels,
         cls_bg=False, 
         decode_module_cfg=dict(
             type='DepthwiseSeparableASPPHead',
@@ -27,9 +28,9 @@ model = dict(
             c1_in_channels=256,
             c1_channels=48,
         ),
-        reset_counter=True,                     # iteration 기준 초기화
-        start_clip_guided=(1, 4000),            # 1 ~ 4000 : CLIP-guided only
-        start_self_train=(4001, -1),            # 4001 이후 : Self-Training
+        #reset_counter=True,                     # iteration 기준 초기화
+        start_clip_guided=(1, 3999),            # 1 ~ 3999 : CLIP-guided only
+        start_self_train=(4000, -1),            # 4000 이후 : Self-Training
     )
 )
 
