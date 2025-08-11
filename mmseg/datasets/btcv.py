@@ -45,18 +45,25 @@ class BTCVDataset(CustomDataset):
         return data_infos
 
     def get_gt_seg_map_by_filename(self, seg_map_filename):
-        sparse = load_npz(seg_map_filename)  # (13, 262144)
-        dense = sparse.toarray()  # shape: (13, 262144)
-        
-        if dense.shape[0] == 13:
-            # One-hot → class index map
-            dense = np.argmax(dense, axis=0).reshape(512, 512)  # shape: (512, 512)
+        sparse = load_npz(seg_map_filename)  # (13, 262144) or (13, 512*512)
+        dense = sparse.toarray()
+
+        # (13, H*W) 또는 (13, H, W) 모두 대응
+        if dense.ndim == 2 and dense.shape[0] == 13:
+            bg_mask = (dense.sum(axis=0) == 0)              # 모든 채널 0이면 배경
+            seg = np.argmax(dense, axis=0)                  # 0~12
+            seg[bg_mask] = self.ignore_index               # ← 여기! 배경을 255로
+            seg = seg.reshape(512, 512)
+        elif dense.ndim == 3 and dense.shape[0] == 13:
+            bg_mask = (dense.sum(axis=0) == 0)
+            seg = np.argmax(dense, axis=0)
+            seg[bg_mask] = self.ignore_index
         else:
             raise ValueError(f"Unexpected shape: {dense.shape} in {seg_map_filename}")
 
-        return dense.astype(np.uint8)
+        return seg.astype(np.uint8)
 
-    
+        
     def get_gt_seg_map_by_idx(self, index):
         seg_map_path = self.img_infos[index]['ann_info']['seg_map']
         return self.get_gt_seg_map_by_filename(seg_map_path)

@@ -1,48 +1,35 @@
 import os
 import numpy as np
 from scipy.sparse import load_npz
-from tqdm import tqdm
 
-LABEL_DIR = 'data/BTCV/label'
-target_class = 2  # class index for adrenal_gland_left (after adding background)
-files_with_target_class = []
+# ===== 라벨 경로 =====
+LABEL_FILE = 'data/BTCV/label/ABD_004_97.npz'  # 파일 경로 수정
 
-print(f"🔍 Checking for class {target_class} (adrenal_gland_left) based on dense sum...\n")
+# ===== 로드 및 구조 확인 =====
+sparse = load_npz(LABEL_FILE)
+dense = sparse.toarray()
 
-for fname in tqdm(os.listdir(LABEL_DIR)):
-    if not fname.endswith('.npz'):
-        continue
+# (13, H*W) → (13, H, W) 형태로 변환
+if dense.shape[0] == 13 and dense.shape[1] == 512 * 512:
+    dense = dense.reshape(13, 512, 512)
 
-    npz_path = os.path.join(LABEL_DIR, fname)
-    try:
-        sparse_arr = load_npz(npz_path)
-        dense_arr = sparse_arr.toarray()  # shape: (13, H*W) or (13, H, W)
+print(f"라벨 shape: {dense.shape}")  # 예상: (13, 512, 512)
 
-        # reshape if needed
-        if dense_arr.shape == (13, 512 * 512):
-            dense_arr = dense_arr.reshape(13, 512, 512)
+# ===== 채널 수 검증 =====
+num_channels = dense.shape[0]
+print(f"채널 수: {num_channels}")
+assert num_channels == 13, "⚠️ 채널 수가 13이 아님!"
 
-        if dense_arr.shape[0] == 13:
-            # Add background channel at index 0 → push class 12 → 13
-            dense_arr = np.vstack([np.zeros((1, *dense_arr.shape[1:])), dense_arr])
+# ===== 픽셀별 클래스 ID 계산 =====
+# argmax로 각 픽셀의 채널 index를 클래스 ID로 변환
+class_map = np.argmax(dense, axis=0)  # shape: (512, 512)
 
-        if dense_arr.shape[0] != 14:
-            print(f"❌ Shape mismatch in {fname}: {dense_arr.shape}")
-            continue
+# background 픽셀 찾기 (모든 채널이 0인 경우)
+bg_mask = (dense.sum(axis=0) == 0)
+class_map[bg_mask] = 255  # background를 255로 표시
 
-        # Check if class 13 (adrenal_gland_left) appears
-        if dense_arr[target_class].sum() > 0:
-            files_with_target_class.append(fname)
-
-    except Exception as e:
-        print(f"⚠️ Error reading {fname}: {e}")
-
-# 🔽 결과 출력
-print(f"\n📊 Found {len(files_with_target_class)} files containing class {target_class} (adrenal_gland_left):")
-for f in files_with_target_class:
-    print(" -", f)
-
-if not files_with_target_class:
-    print("\n❌ Class 13 never appears in the current dataset!")
-else:
-    print("\n✅ Class 13 is present in some label files.")
+# ===== 통계 출력 =====
+unique, counts = np.unique(class_map, return_counts=True)
+print("\n클래스 ID 분포 (255=background):")
+for cls_id, cnt in zip(unique, counts):
+    print(f"Class {cls_id:3d}: {cnt} pixels ({cnt / class_map.size * 100:.2f}%)")
